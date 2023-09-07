@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
   const readableStream = new MemoryStream()
 
   outputStream.pipe(readableStream)
-  
-  return new Response(readableStream, {
+  // @ts-ignore
+  return new Response(readableStream, { 
     headers: {
       'Content-Type': 'application/zip',
       'Content-Disposition': 'attachment; filename=output.zip'

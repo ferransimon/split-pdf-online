@@ -1,35 +1,47 @@
-import path from 'path'
 import { PDFDocument } from 'pdf-lib'
 import archiver from 'archiver'
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import {createWriteStream} from 'fs'
-import { v4 as uuidv4 } from 'uuid'
+import { Readable } from 'stream'
+import MemoryStream from 'memorystream'
 
-
-async function splitPdf(file: File): Promise<string> {
+async function splitPdf(file: File): Promise<MemoryStream> {
   try {
+
+    const outputStream = new MemoryStream()
     
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
     const pdfDoc = await PDFDocument.load(buffer);
 
-    // Crear un directorio temporal
-    const tmpDir = await fs.mkdtemp(path.join( process.cwd(), 'pdf_split_'));
+    const zip = archiver('zip', { zlib: { level: 9 } })
+    zip.pipe(outputStream)
 
     for (let i = 0; i < pdfDoc.getPageCount(); i++) {
       const newPdfDoc = await PDFDocument.create()
       const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i])
       newPdfDoc.addPage(copiedPage)
       const pdfBytes = await newPdfDoc.save()
+      const pdfStream = Readable.from(Buffer.from(pdfBytes))
+      
       const outputFileName = `page_${i + 1}.pdf`
   
-      await fs.writeFile(path.join(tmpDir, outputFileName), pdfBytes)
+      zip.append(pdfStream, { name: outputFileName })
 
     }
 
-    return tmpDir;
+    zip.finalize()
+
+    await new Promise<void>((resolve, reject) => {
+      zip.on('finish', resolve)
+      outputStream.on('close', resolve);
+      outputStream.on('finish', resolve);
+      outputStream.on('error', reject);
+    })
+
+    outputStream.end()
+
+    return outputStream;
   } catch (error) {
     throw error;
   }
@@ -43,31 +55,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false })
   }
 
-  const dirPath = await splitPdf(file)
+  const outputStream = await splitPdf(file)
 
-  const fileName = `${uuidv4()}.zip`
+  const readableStream = new MemoryStream()
 
-  const output = createWriteStream(fileName)
-
-  const archive = archiver('zip', {
-    zlib: { level: 9 } // Sets the compression level.
+  outputStream.pipe(readableStream)
+  
+  return new Response(readableStream, {
+    headers: {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename=output.zip'
+    }
   })
-
-  archive.on('error', function(err){
-    throw err;
-  });
-
-  archive.pipe(output)
-
-  archive.directory(dirPath, false)
-  archive.finalize()
-
-  await new Promise<void>((resolve, reject) => {
-    output.on('close', resolve);
-    output.on('error', reject);
-  })
-
-  await fs.rm(dirPath, { recursive: true, force: true })
-
-  return NextResponse.json({fileName})
 }

@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useRef, ChangeEvent, FormEvent } from 'react'
+import { useState, ChangeEvent, FormEvent } from 'react'
 import { saveFile } from './utils/files';
 
 
 export default function Upload() {
   const [file, setFile] = useState<File | null | undefined>(null)
-  const parseNamesRef = useRef< HTMLInputElement | null >(null)
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -22,24 +21,34 @@ export default function Upload() {
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('extractNames', parseNamesRef?.current?.checked ? '1' : '0')
+    
+    const responseNames = await fetch('/api/pdf/names', {
+      method: 'POST',
+      body: formData,
+    })
 
-    try {
-      const response = await fetch('/api/pdf', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (response.ok) {
-        const blob = await response.blob()
-        await saveFile(blob)
-      } else {
-        alert('Hubo un error al procesar el archivo PDF.')
+    if (responseNames.ok) {
+      const {names} = await responseNames.json()
+      formData.append('names', names.join(','))
+      try {
+        const response = await fetch('/api/pdf', {
+          method: 'POST',
+          body: formData,
+        })
+  
+        if (response.ok) {
+          const blob = await response.blob()
+          await saveFile(blob)
+        } else {
+          alert('Hubo un error al procesar el archivo PDF.')
+        }
+      } catch (error) {
+        console.error(error)
+        alert('Hubo un error al enviar el formulario.')
       }
-    } catch (error) {
-      console.error(error)
-      alert('Hubo un error al enviar el formulario.')
     }
+
+    
   };
 
   return (
@@ -53,8 +62,6 @@ export default function Upload() {
           accept=".pdf"
           onChange={handleFileChange}
         />
-        <label htmlFor="parseNames">Usar nombres?</label>
-        <input ref={parseNamesRef} id="parseNames" type="checkbox" />
         <button type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded-full text-sm px-5 py-2.5 text-center mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Enviar</button>
       </form>
     </div>

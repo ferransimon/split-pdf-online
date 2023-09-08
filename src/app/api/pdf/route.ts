@@ -5,7 +5,7 @@ import { Readable } from 'stream'
 import MemoryStream from 'memorystream'
 import { extractNames } from '../../utils/pdf'
 
-async function splitPdf(file: File): Promise<MemoryStream> {
+async function splitPdf(file: File, parseNames: boolean): Promise<MemoryStream> {
   try {
 
     const outputStream = new MemoryStream()
@@ -13,7 +13,7 @@ async function splitPdf(file: File): Promise<MemoryStream> {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const fileNamesByPage = await extractNames(file)
+    const fileNamesByPage = parseNames ? await extractNames(file) : []
 
     const pdfDoc = await PDFDocument.load(buffer);
 
@@ -28,7 +28,7 @@ async function splitPdf(file: File): Promise<MemoryStream> {
       
       const pdfStream = Readable.from(Buffer.from(pdfBytes))
       
-      const outputFileName = `${fileNamesByPage[i]}.pdf`
+      const outputFileName = parseNames ? `${fileNamesByPage[i]}.pdf` : `page_${i + 1}.pdf`
   
       zip.append(pdfStream, { name: outputFileName })
 
@@ -54,12 +54,13 @@ async function splitPdf(file: File): Promise<MemoryStream> {
 export async function POST(request: NextRequest) {
   const data = await request.formData()
   const file: File | null = data.get('file') as unknown as File
+  const extractNames: boolean = data.get('extractNames') as string == '1'
 
   if (!file) {
     return NextResponse.json({ success: false })
   }
 
-  const outputStream = await splitPdf(file)
+  const outputStream = await splitPdf(file, extractNames)
 
   const readableStream = new MemoryStream()
 

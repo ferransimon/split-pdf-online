@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, ChangeEvent, FormEvent } from 'react'
+import { useState, useRef, ChangeEvent, FormEvent } from 'react'
 import { saveFile } from './utils/files';
 
 
 export default function Upload() {
   const [file, setFile] = useState<File | null | undefined>(null)
+  const parseNamesRef = useRef< HTMLInputElement | null >(null)
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -21,6 +22,7 @@ export default function Upload() {
 
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('extractNames', parseNamesRef?.current?.checked ? '1' : '0')
 
     try {
       const response = await fetch('/api/pdf', {
@@ -51,6 +53,8 @@ export default function Upload() {
           accept=".pdf"
           onChange={handleFileChange}
         />
+        <label htmlFor="parseNames">Usar nombres?</label>
+        <input ref={parseNamesRef} id="parseNames" type="checkbox" />
         <button type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded-full text-sm px-5 py-2.5 text-center mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Enviar</button>
       </form>
     </div>

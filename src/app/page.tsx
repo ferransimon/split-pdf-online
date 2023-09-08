@@ -6,10 +6,15 @@ import { saveFile } from './utils/files';
 
 export default function Upload() {
   const [file, setFile] = useState<File | null | undefined>(null)
+  const [fileToSave, setFileToSave] = useState<Blob | null | undefined>(null)
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
     setFile(selectedFile);
+  }
+
+  const handleSaveFile = () => {
+    saveFile(fileToSave as Blob)
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -38,7 +43,7 @@ export default function Upload() {
   
         if (response.ok) {
           const blob = await response.blob()
-          await saveFile(blob)
+          setFileToSave(blob)
         } else {
           alert('Hubo un error al procesar el archivo PDF.')
         }
@@ -64,6 +69,7 @@ export default function Upload() {
         />
         <button type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded-full text-sm px-5 py-2.5 text-center mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Enviar</button>
       </form>
+      {fileToSave && <button onClick={handleSaveFile} type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded-full text-sm px-5 py-2.5 text-center mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Salvar</button>}
     </div>
   )
 }

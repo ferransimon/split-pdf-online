@@ -3,66 +3,7 @@ import archiver from 'archiver'
 import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import MemoryStream from 'memorystream'
-import { extractNames } from '../../utils/pdf'
 import { File } from 'buffer'
-
-async function splitPdf(file: File, parseNames: boolean): Promise<MemoryStream> {
-  try {
-
-    const outputStream = new MemoryStream()
-    
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
-    const fileNamesByPagePromise: Promise<string[]> = parseNames ? 
-      extractNames(file) : 
-      new Promise((resolve) => resolve([]))
-
-    const pdfDoc = await PDFDocument.load(buffer);
-
-    const zip = archiver('zip', { zlib: { level: 9 } })
-    zip.pipe(outputStream)
-
-    const pdfStreams = []
-
-    for (let i = 0; i < pdfDoc.getPageCount(); i++) {
-      const newPdfDoc = await PDFDocument.create()
-      const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i])
-      newPdfDoc.addPage(copiedPage)
-      const pdfBytes = await newPdfDoc.save()
-      
-      const pdfStream = Readable.from(Buffer.from(pdfBytes))
-      
-      pdfStreams.push(pdfStream)
-    }
-
-    if (parseNames) {
-      const fileNamesByPage = await fileNamesByPagePromise
-      pdfStreams.forEach((stream, idx) => {
-        zip.append(stream, { name: `${fileNamesByPage[idx]}.pdf` })
-      })
-    } else {
-      pdfStreams.forEach((stream, idx) => {
-        zip.append(stream, { name: `page_${idx}.pdf` })
-      })
-    }
-
-    zip.finalize()
-
-    await new Promise<void>((resolve, reject) => {
-      zip.on('finish', resolve)
-      outputStream.on('close', resolve);
-      outputStream.on('finish', resolve);
-      outputStream.on('error', reject);
-    })
-
-    outputStream.end()
-
-    return outputStream;
-  } catch (error) {
-    throw error;
-  }
-}
 
 async function splitPdfWithNames(file: File, names: string[]): Promise<MemoryStream> {
   try {

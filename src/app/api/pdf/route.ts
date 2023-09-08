@@ -3,6 +3,7 @@ import archiver from 'archiver'
 import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'stream'
 import MemoryStream from 'memorystream'
+import { extractNames } from '../../utils/pdf'
 
 async function splitPdf(file: File): Promise<MemoryStream> {
   try {
@@ -11,6 +12,8 @@ async function splitPdf(file: File): Promise<MemoryStream> {
     
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
+
+    const fileNamesByPage = await extractNames(file)
 
     const pdfDoc = await PDFDocument.load(buffer);
 
@@ -22,9 +25,10 @@ async function splitPdf(file: File): Promise<MemoryStream> {
       const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i])
       newPdfDoc.addPage(copiedPage)
       const pdfBytes = await newPdfDoc.save()
+      
       const pdfStream = Readable.from(Buffer.from(pdfBytes))
       
-      const outputFileName = `page_${i + 1}.pdf`
+      const outputFileName = `${fileNamesByPage[i]}.pdf`
   
       zip.append(pdfStream, { name: outputFileName })
 

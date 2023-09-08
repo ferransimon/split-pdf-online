@@ -22,9 +22,7 @@ const extractNames = async (pdfFile: File) => {
         })
     })
 
-    return names
-
-    
+    return names 
 }
 
 export {extractNames}

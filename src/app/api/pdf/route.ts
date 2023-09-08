@@ -13,12 +13,16 @@ async function splitPdf(file: File, parseNames: boolean): Promise<MemoryStream> 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const fileNamesByPage = parseNames ? await extractNames(file) : []
+    const fileNamesByPagePromise: Promise<string[]> = parseNames ? 
+      extractNames(file) : 
+      new Promise((resolve) => resolve([]))
 
     const pdfDoc = await PDFDocument.load(buffer);
 
     const zip = archiver('zip', { zlib: { level: 9 } })
     zip.pipe(outputStream)
+
+    const pdfStreams = []
 
     for (let i = 0; i < pdfDoc.getPageCount(); i++) {
       const newPdfDoc = await PDFDocument.create()
@@ -28,10 +32,18 @@ async function splitPdf(file: File, parseNames: boolean): Promise<MemoryStream> 
       
       const pdfStream = Readable.from(Buffer.from(pdfBytes))
       
-      const outputFileName = parseNames ? `${fileNamesByPage[i]}.pdf` : `page_${i + 1}.pdf`
-  
-      zip.append(pdfStream, { name: outputFileName })
+      pdfStreams.push(pdfStream)
+    }
 
+    if (parseNames) {
+      const fileNamesByPage = await fileNamesByPagePromise
+      pdfStreams.forEach((stream, idx) => {
+        zip.append(stream, { name: `${fileNamesByPage[idx]}.pdf` })
+      })
+    } else {
+      pdfStreams.forEach((stream, idx) => {
+        zip.append(stream, { name: `page_${idx}.pdf` })
+      })
     }
 
     zip.finalize()
